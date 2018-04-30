@@ -1,0 +1,525 @@
+#!/bin/bash
+#
+# i3-wrapper
+#
+# - Command aliases.
+# - Contains at least one bashism: https://wiki.ubuntu.com/DashAsBinSh
+#
+
+#
+# The wrapper Interface is a frequently modified file in shared memory.
+#
+dir=/dev/shm/${USER}/i3
+file=command
+
+#
+# Label the (L)eft (C)entre (R)ight (MON)itors.
+# My three monitors were arranged thus: [HDMI2] [HDMI1] [VGA1].
+# Use 'xrandr' with no arguments to list monitor names and geometry.
+#
+lmon=HDMI2
+cmon=HDMI1
+rmon=VGA1
+
+#
+# Focus Watcher.
+#
+dofocus='emacs'
+infocus='true'
+exfocus='true'
+#
+timestamp=/dev/shm/${USER}/i3/timestamp
+
+#
+# Focus or launch a program.
+#
+# EITHER switch focus to the running program matching on $1=$2, OR
+# launch $5 with arguments ${@:6} on workspace $3 and output $4.
+#
+focus ()
+{
+    # Attempt to match the running program and obtain its window id.
+    case "$1" in
+        (instance)
+        W=$(xdotool search --classname "$2" | head -1) ;;
+        (class)
+        W=$(xdotool search --class "$2" | head -1) ;;
+        (title)
+        W=$(xdotool search --name "$2" | head -1) ;;
+        (*)
+        W='' ;;
+    esac
+
+    if [ -z "$W" ]; then
+        # Launch the program because no matching window id was found.
+        if [ $# -ge 5 ]; then
+            if  [ "$4" == 'none' ]; then
+                # Prefer to let i3 and dot-i3-config assign the
+                # workspace and output? Take this branch.
+                i3-msg "exec ${*:5}"
+            else
+                # {$3,$4} should be valid because they are constants.
+                case "$4" in
+                    (${lmon}|${cmon}|${rmon})
+                    cws=$(i3-msg -t get_workspaces | jq '.[] | .name,.focused' | grep true -B1 | grep -v true)
+                    if [ "$3" != 'none' ] && [ "${cws}" != "\"$3"\" ]; then
+                         cmd="workspace $3; exec ${*:5};"
+                    else
+                         cmd="exec ${*:5}"
+                    fi
+                    i3-msg "$cmd"
+                    sleep 1
+                    cmd="move workspace to output $4"
+                    i3-msg "$cmd"
+                    ;;
+                esac
+            fi
+        fi
+    else
+        # Focus the workspace.
+        # Escape any whitespace to suit 'i3-msg'.
+        cmd="[$1=${2// /\\x20}] focus"
+        cws=$(i3-msg -t get_workspaces | jq '.[] | .name,.focused' | grep true -B1 | grep -v true)
+        if [ "$3" != 'none' ] && [ "${cws}" != "\"$3"\" ]; then
+            cmd="workspace empty; workspace back_and_forth; ${cmd}"
+        fi
+        i3-msg "${cmd}"
+    fi
+}
+
+#
+# Scratchpad (drop down) terminal.
+#
+i3dd()
+{
+    # Only one key binding is required, the first keypress performs
+    # initialisation and hides the terminal again.
+    if  [ "_$(xdotool search --classname "Scratchpad" | head -1)"  = "_" ]; then
+        xfce4-terminal -T Scratchpad &
+        sleep 1
+        # Set the instance to identify the scratchpad.
+        xdotool getwindowfocus set_window --classname "Scratchpad"
+        i3-msg "[instance=\"Scratchpad\"] resize set 80 ppt 80 ppt"
+        i3-msg "[instance=\"Scratchpad\"] move absolute position 2112 24"
+        i3-msg "[instance=\"Scratchpad\"] move scratchpad"
+    else
+        i3-msg "focus output ${cmon}"
+        i3-msg "[instance=\"Scratchpad\"] scratchpad show"
+    fi
+}
+
+#
+# Mark Emacs frames in the same way as terminals.
+#
+i3em()
+{
+    id=$((10#$(date +%N) % 100))
+    id=$(printf "%02d" "${id}")
+    sleep 1
+    windowid=$(printf "0x%x" "$(xdotool getwindowfocus)")
+    i3-msg "[id=\"${windowid}\"] mark --toggle \"${id}\""
+    # Move to (named) workspace.
+    i3inputfont="pango:DejaVu Sans 12"
+    i3-input -f "${i3inputfont}"  \
+         -P '(move Emacs frame to workspace): ' \
+         -F 'move container to workspace "%s"'
+    i3-msg "[con_mark=\"${id}\"] focus"
+}
+
+#
+# Mark Google Chrome windows in the same way as terminals.
+#
+i3gc()
+{
+    id=$((10#$(date +%N) % 100))
+    id=$(printf "%02d" "${id}")
+    sleep 1
+    windowid=$(printf "0x%x" "$(xdotool getwindowfocus)")
+    i3-msg "[id=\"${windowid}\"] mark --toggle \"${id}\""
+    # Move to (named) workspace.
+    i3inputfont="pango:DejaVu Sans 12"
+    i3-input -f "${i3inputfont}"  \
+         -P '(move Google Chrome to workspace): ' \
+         -F 'move container to workspace "%s"'
+    i3-msg "[title=\"Google Chrome\" con_mark=\"${id}\"] focus"
+}
+
+#
+# Add a terminal to the current workspace. (split h, side-by-side)
+#
+i3tt()
+{
+    i3-msg "split h"
+    i3lowerlower 'tt'
+}
+
+#
+# Add a terminal to the current workspace. (split v, stacked)
+#
+i3yy()
+{
+    i3-msg "split v"
+    i3lowerlower 'tt'  # sic, 'tt'.
+}
+
+#
+# Add a terminal to a workspace matching the command alias.
+#
+i3lowerlower()
+{
+    # Terminals are launched with two digits inside the title and
+    # a matching mark.  Collisions are indeed possible with this
+    # but in practice it seems not. Pad with a leading zero.
+    id=$((10#$(date +%N) % 100))
+    id=$(printf "%02d" "${id}")
+    # i3wm suffers from gnome|xfce4-terminals that don't redraw
+    # properly when shown again after being hidden.
+    title="xfce4-terminal-${id}"
+    xfce4-terminal -T "${title}" &
+    # Allow time for the window to appear.
+    sleep 1
+    i3-msg "[title=\"${title}\"] mark \"${id}\""
+    if [ "$1" != 'tt' ]; then
+        # Terminals invoked with two letters other than 'tt' are put
+        # on a dedicated workspace, the 'tt' ones on the current one.
+        i3-msg "move container to workspace $1, workspace $1"
+    fi
+}
+
+#
+# Focus a window that has the matching mark.
+#
+i3mark()
+{
+    # A mark can be anything alphanumeric that isn't a command alias,
+    # e.g 22 AA a2 2a A2 2A but excluding 'aa' when pre-empted.
+    cmd="[con_mark=\"$1\"] focus"
+    i3-msg "${cmd}"
+}
+
+#
+# Common programs with examples of how to integrate them.
+#
+i3programs ()
+{
+    case "$1" in
+        (:*) echo "${@/:/}" | xclip ;;
+
+        (em|emacs)
+        focus instance emacs 'em' ${cmon} emacs -rv
+        ;; # ok
+        (gc|google-chrome)
+        focus class "Google-chrome" 'gc' 'none' google-chrome
+        ;; # ok
+        (ff|firefox)
+        focus instance Navigator 'ff' ${cmon} firefox
+        ;;
+        (tb|thunderbird)
+        focus class Thunderbird 'tb' ${lmon} thunderbird
+        ;; # ok
+        (ex|explorer)
+        focus title 'File Manager' 'ex' ${lmon} exo-open --launch FileManager "${HOME}/Downloads"
+        ;; # ok
+
+        (sy|synaptic)
+        focus instance synaptic 'sy' ${lmon} synaptic-pkexec
+        ;; # ok
+        (vb|virtualbox)
+        focus title 'Oracle VM VirtualBox'  'vb' ${cmon} virtualbox
+        ;; # ok
+        (ws|wireshark)
+        focus instance wireshark 'ws' ${cmon} wireshark
+        ;; # n/a
+
+        (ww|alt-word)
+        focus title "LibreOffice Writer"  'ww' 'none'   libreoffice --writer
+        ;;
+        (pp|alt-powerpoint)
+        focus title "LibreOffice Impress"  'pp' 'none'   libreoffice --impress
+        ;;
+        (ss|alt-excel)
+        focus title "LibreOffice Calc"  'ss' 'none'  libreoffice --calc
+        ;;
+        (sg|screengrab)
+        focus none none 'none'  xfce4-screenshooter -d 2
+        ;;
+        (im|images)
+        focus instance ristretto 'im' ${cmon} ristretto
+        ;;
+
+        (mu|music)
+        focus instance clementine 'mu' ${cmon} clementine
+        ;;
+        (fp)
+        focus class ffplay 'fp'
+        ;;
+        (mp)
+        focus class mpv 'mp'
+        ;;
+        (hb|handbrake)
+        focus title HandBrake 'hb' ${cmon} handbrake
+        ;;
+
+        (dd)
+        i3dd # The dropdown terminal.
+        ;;
+        (tt)
+        i3tt  # Terminal in the current workspace. Split is left-right.
+        ;;
+        (yy)
+        i3yy  # Terminal in the current workspace. Split is top-bottom.
+        ;;
+        ([a-z][a-z])
+        if [ "_$(which i3custom)" = "_" ]; then
+            i3lowerlower "$1" # Terminals in other workspaces.
+        else
+            # An optional script that adds commands. It should succeed
+            # when $1 is matched, and fail otherwise.
+            i3custom "$1"
+            if [ $? -ne 0 ]; then
+                i3lowerlower "$1"
+            fi
+        fi
+        ;;
+        (i3em)
+        i3em
+        ;;
+        (i3gc)
+        i3gc
+        ;;
+        ([a-zA-Z0-9][a-zA-Z0-9])  # This cannot match all lowercase here.
+        i3mark "$1"  # Mark Terminals.
+        ;;
+        (*)
+        # Do nothing. Do not be tempted to eval/exec arbitrary strings!
+        ;;
+    esac
+}
+
+#
+# Entry point for invoking a command alias or visiting a mark supplied
+# either directly via command line or indirectly via the file watcher.
+#
+start ()
+{
+    i3programs "$@"
+}
+
+#
+# The watcher calls the wrapper when the file held in shared memory
+# changes. The wrapper obtains the command alias or mark from the
+# file, and visits it, invoking as necessary.
+#
+dashs ()
+{
+    # The file typically consists of a two character string for the
+    # first argument but as a last resort calling i3-msg supports
+    # commands with argument lists.
+    cmd=$(cat "${dir}/${file}")
+    start "${cmd}"
+}
+
+#
+# Create a file in shared memory, monitor it for changes, and when it
+# changes, call this script with the file contents passed as argument.
+#
+dashg ()
+{
+    # Destroy any running instance of the file watcher.
+    pid=$(pgrep -af 'inotify-hookable' | grep 'i3-wrapper -s' | awk '{print $1}')
+    if  ! test -z  "${pid}"; then
+        kill -HUP "${pid}"
+    fi
+    sleep 1
+    # Create the file and populate with a no-op.
+    mkdir -p "${dir}"
+    echo "--" | tee "${dir}/${file}"
+    # Create a singleton instance of the file watcher.
+    # Create it inside a terminal.
+    exe=$(basename  "$0")
+    xfce4-terminal -T "${exe}: file watcher" -x \
+        inotify-hookable \
+        --watch-files "${dir}/${file}" \
+        --on-modify-command "$0 -s" &
+}
+
+#
+# The prompt dialog writes the command alias or the mark to the file
+# held in shared memory.
+#
+dashp ()
+{
+    t=5
+    (
+        # Assume one or two characters input and apply the
+        # Return key 1 second before the dialog goes away.
+        sleep "$((t - 1))"
+        W=$(xdotool search --class Yad | head -1);
+        if [ ! -z "$W" ]; then
+            xdotool windowactivate "$W"
+            xdotool key Return
+        fi
+    ) &
+    cmd=$(yad --width=64  --center --no-buttons \
+        --title='i3 command alias or mark to visit' \
+        --entry --entry-label='(two characters)': \
+        --timeout=${t} --timeout-indicator=bottom)
+    # Enforce the two character limit here, the limit only applies
+    # to the prompt dialog.
+    echo "${cmd}" | cut -c 1-2 | tee "${dir}/${file}"
+}
+
+#
+# Do one action when the name of the focused window matches the name
+# of the window argument, do the other action when they don't match.
+#
+dasha ()
+{
+    #
+    # $1 = window label (substring) to be matched against.
+    # $2 = command to run when the window in focus matches.
+    # $3 = command to run otherwise.
+    #
+    focus=$(xdotool getwindowfocus)
+    for id in $(xdotool search "${dofocus}") ; do
+        if  [ "${focus}" = "${id}" ] ; then
+            # Indicator light ON (Dell keyboard).
+            xset led 3
+            # Success. The window has focus. Execute this command:
+            (eval "${infocus}") &
+            return 0
+        fi
+    done
+    # Indicator light OFF (Dell keyboard).
+    xset -led 3
+    # Failure. The window has lost focus. Execute this command:
+    (eval "${exfocus}") &
+    return 1
+}
+
+#
+# Watch the window stack for focus events.
+#
+dashn ()
+{
+    # The search emits the names of the window that have lost and
+    # gained focus plus lines containing hexadecimal ids. Considering
+    # that the lines in a group are clustered in time, the beginning
+    # of a group is marked by the larger time difference between
+    # lines
+    while true ; do
+        xdotool search . \
+            behave %@ focus getwindowname | while read line
+        do
+            old=$(cat "${timestamp}")
+            new=$(date +"%s%N")
+            echo "${new}" > "${timestamp}"
+            delta=$(( new - old ))
+            # Threshold is 100 ms, the trailing 100 triplets are defensive
+            # programming.
+            [ ${delta} -ge 100100100 ] && "$0" -a && \
+                echo "${delta::-6} ms [$line]"
+            count=$(echo "$line" | grep -c 'Unexpected event:')
+            [ "${count}" -gt 0 ] && break
+        done
+        sleep 3
+    done
+}
+
+#
+# Watch the window stack for focus events.
+#
+dashf ()
+{
+    # Destroy any running instance of the focus watcher.
+    pid=$(pgrep -af 'xdotool search' | grep 'focus getwindowname' | awk '{print $1}')
+    if  ! test -z  "${pid}"; then
+        kill -HUP "${pid}"
+    fi
+    tsdir=$(basename "${timestamp}")
+    mkdir -p "${tsdir}"
+    # Create a singleton instance of the focus watcher.
+    # Create it inside a terminal.
+    exe=$(basename "$0")
+    xfce4-terminal -T "${exe}: focus watcher" -x "$0" -n &
+}
+
+#
+# Kill the focused window unless its name matches the name of this
+# script or a name on the argument list.
+#
+dashk ()
+{
+    name=$(xdotool getwindowfocus getwindowname)
+    # Terminals running this script are immune.
+    for save in $(basename "$0") "$@"; do
+        if test "${name#*${save}}" != "${name}"; then
+            return
+        fi
+    done
+    # Windows with all upper case marks are immune.
+    mark=$(i3-msg -t  get_tree | sed s/\{/\\n/g | \
+        grep '"focused":true' | sed s/\,/\\n/g | grep mark | cut -c11-12)
+    case "${mark}" in
+        ([A-Z][A-Z]) ;;
+        (*) i3-msg kill ;;
+    esac
+}
+
+#
+# The i3 dynamic menu.
+#
+dashd ()
+{
+    # Parse this script to make a dmenu on-the-fly.
+    # It's fast and we don't need to use 'less' so not Makefile.
+
+    # [1] find all case expressions in lowercase.
+    # [2] (mumble about dashes),
+    # [3] reject double-dash case expressions,
+    # [4] cut upto and including the first bar,
+    # [5] reject anything that stlll has a bar,
+    # [6] sort and assemble the dmenu,
+    # [7] wait for user to choose or cancell,
+    # [8] pass any choice to 'start' function.
+
+    choice=$(grep '[(][a-z][a-z][|]' "$0" | sed 's/--[a-z]*//g' | \
+        sed 's/[\x20]*//g' | cut -c 5- | sed 's/)//g' | grep -v '|' |  \
+        sort -u | \
+        dmenu -fn '-misc-fixed-bold-r-normal--14-*-*-*-*-*-*-*')
+    [ ! -z "${choice}" ] && start "${choice}"
+}
+
+#
+# Start here.
+#
+case ${XDG_CURRENT_DESKTOP} in
+    (XFCE)
+    case "$1" in
+        # These dash options are internal messages sent between i3
+        # config and i3 scripts.
+        (-a) dasha ;;
+        (-d) dashd ;;
+        (-f) dashf ;;
+        (-g) dashg ;;
+        (-k) dashk "${@:2}" ;;
+        (-n) dashn ;;
+        (-p) dashp ;;
+        (-s) dashs ;;
+        (-*) ;;
+        # Inject a command or mark directly, bypasssing the usual
+        # interface.
+        (*)
+        start "$@"
+        ;;
+    esac
+    exit 0
+    ;;
+    (*)
+    exit 2
+    ;;
+esac
+
+#
+# Done.
+#

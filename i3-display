@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# Display off/on.
+#
+# Requires i3-mouse for setmouse, xdotool.
+#
+
+setdisplay ()
+{
+    case "$1" in
+        # Sleep the display using the keyboard or console, not the
+        # mouse.
+        (sleep|off)
+        xdotool mousemove --clearmodifiers 2560 8
+        setmouse disable
+        xset s blank
+        xset dpms 0 0 0
+        xset dpms force off
+        ;;
+        # Wake the display using the keyboard or console, not the
+        # mouse.
+        (wake|on)
+        setmouse enable
+        xdotool mousemove --clearmodifiers 2048 128
+        setmouse fast
+        xset s off
+        xset -dpms
+        ;;
+        (*)
+        ;;
+    esac
+}

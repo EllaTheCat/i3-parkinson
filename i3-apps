@@ -1,0 +1,143 @@
+#!/bin/sh
+#
+# A script to start|stop various programs.
+#
+
+verb=start
+for argument in "${@}"
+do
+    case "${argument}" in
+        (wrapper)
+        i3-msg '[title="file watcher"] kill'
+        sleep 0.1
+        i3-msg '[title="focus watcher"] kill'
+        sleep 0.1
+        if [ "_${verb}" != "_stop" ]; then
+            path=$(dirname "$0")
+            (eval "${path}/i3-wrapper -g") &
+            sleep 0.1
+            (eval "${path}/i3-wrapper -f") &
+        fi
+        ;;
+
+        # This listens for playlists sent from my phone in response to
+        # voice requests, and plays them via my desktop speakers.
+        (music)
+        pkill -f "playlist.m3u" # KISS.
+        if [ "_${verb}" != "_stop" ]; then
+            playlist="/dev/shm/${USER}/inotify/music"  # The directory not the file.
+            mkdir -p "${playlist}"
+            playlist="${playlist}/playlist.m3u"
+            if [ ! -e  "${playlist}" ]; then
+                touch "${playlist}"  # The file must exist else the watcher terminates.
+            fi
+            playlist="--watch-files ${playlist} --on-modify-command  \"mpv ${playlist}\""
+            (eval "inotify-hookable ${playlist}") &
+        fi
+        ;;
+
+        # Dropbox needs to be launched with dbus.
+        (dropbox)
+        dropbox stop
+        if [ "_${verb}" != "_stop" ]; then
+            dbus-launch dropbox start -i
+        fi
+        ;;
+
+        # SpiderOakONE.
+        (spideroak)
+        if [ "$(pgrep -c SpiderOakONE)" -ne 0 ]; then
+            if  [ "_${verb}" != "_start" ]; then
+                (SpiderOakONE --shutdown > /dev/null 2>&1) &
+            fi
+        fi
+        if [ "$(pgrep -c SpiderOakONE)" -eq 0 ]; then
+            if [ "_${verb}" != "_stop" ]; then
+                (SpiderOakONE) &
+            fi
+        fi
+        ;;
+
+        # Synergy.
+        (synergy)
+        if [ "$(pgrep -c synergy)" -ne 0 ]; then
+            if  [ "_${verb}" != "_start" ]; then
+               pkill -f synergy
+            fi
+        fi
+        if [ "$(pgrep -c synergy)" -eq 0 ]; then
+            if [ "_${verb}" != "_stop" ]; then
+                synergy &
+            fi
+        fi
+        ;;
+
+        # TV Headend behaves better without authentication.
+        (tvheadend)
+        if [ "$(pgrep -c tvheadend)" -ne 0 ]; then
+            if  [ "_${verb}" != "_start" ]; then
+                pkill tvheadend
+            fi
+        fi
+        if [ "$(pgrep -c tvheadend)" -eq 0 ]; then
+            if  [ "_${verb}" != "_stop" ]; then
+                (xfce4-terminal -T 'tvheadend' -x tvheadend --noacl) &
+            fi
+        fi
+        ;;
+
+        # Start or Stop the "background" programs. Press OK to confirm.
+        (bgapps)
+        yad --title="${verb} bgapps" --timeout=300 --timeout-indicator=top
+        if  [ "$?" -eq 0 ]; then
+            eval "$0 ${verb} wrapper tvheadend synergy music dropbox spideroak"
+        fi
+        ;;
+
+        # Stop the important "foreground" programs. Press OK to confirm.
+        (fgapps)
+        for app in emacs firefox chrome thunderbird virtualbox
+        do
+            if [ "$(pgrep -c -f ${app})" -ne 0 ]; then
+                yad --title="stop ${app}" --timeout=300 --timeout-indicator=top
+                if  [ "$?" -eq 0 ]; then
+                    case "${app}" in
+                        (firefox)
+                        # Firefox treats 'kill'/'pkill' as a crash.
+                        i3-msg '[class="Firefox"] kill'
+                        ;;
+                        (virtualbox)
+                        # Running VMs must be shutdown manually.
+                        if [ "$(VBoxManage list runningvms | wc -l)" -ne 0 ]; then
+                            # Allow plenty of time for user intervention.
+                            yad --title="halt ${app}" --timeout=7200
+                            # Allow two minutes for shutdown to complete.
+                            sleep 120s
+                            # Abandon system shutdown if any VMs are still running.
+                            if [ "$(VBoxManage list runningvms | wc -l)" -ne 0 ]; then
+                                exit 0
+                            fi
+                        fi
+                        ;;
+                        (*)
+                        pkill -f ${app}
+                        ;;
+                    esac
+                fi
+            fi
+        done
+        ;;
+
+        # A verb argument affects all subsequent object arguments up
+        # until either the next verb argument or end-of-list.  The
+        # verb variable is initialised such that the first argument
+        # can safely be an object.
+        (start|stop)
+        verb=${argument}
+        ;;
+    esac
+done
+
+#
+# Done.
+#
