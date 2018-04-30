@@ -1,0 +1,235 @@
+
+= Why I use the i3 window manager
+
+== Background
+
+This article is the result of a passing remark made on reddit,
+a popular news aggregation and discussion website.
+Topics are discussed in dedicated areas called subreddits.
+The subreddit /r/i3wm discusses the i3 window manager.
+
+.remark
+[quote, /u/EllaTheCat /r/i3wm, I3WM and XFCE4 - need reassurance]
+____
+i3 is great for Parkinson's because it's scriptable and mouse-neutral. It's keeping me able to use a computer.
+____
+.reply
+[quote, /u/airblader /r/i3wm, I3WM and XFCE4 - need reassurance]
+____
+If you ever find inspiration and time to maybe write some kind of article on how you use i3 with your disability, I would be quite interested in reading that.
+____
+
+This is the article.  Although third-person language is preferred by academics and professionals,
+I believe the appropriate writing style here is first-person.
+
+== What is i3?
+
+Please take a momentmunute or two  to read the link:http://www.i3wm.org[i3 homepage at www.i3wm.org],
+especially the stated goals and values. Here's my TL;DR summary:
+
+[quote,www.i3wm.org]
+____
+i3 is a tiling window manager, completely written from scratch.
+i3 is primarily targeted at advanced users and developers.
+____
+
+== What is Parkinson's Disease?
+
+The Google Dictionary defines Parkinson's Disease (PD) as
+
+[quote,Google]
+____
+a progressive disease of the nervous system marked by tremor, muscular rigidity, and slow, imprecise movement,
+chiefly affecting middle-aged and elderly people.
+It is associated with degeneration of the basal ganglia of the brain and
+a deficiency of the neurotransmitter dopamine.
+____
+
+== What are my symptoms?
+
+The two following  instructions attempt to give the reader some idea of how PD affects me,
+but others' symptoms may differ:
+
+* Rest your dominant hand palm down on a table.
+Raise your palm slightly such that only your fingertips touch the table.
+Now use your thumb to tap the table two or three times a second, as hard and as quickly as you possibly can.
+Now imagine your thumb doing that, sometimes at full power, sometimes just twitching.
+
+* Try typing as if your fingers on your dominant hand were held together by a not-too-tight rubber band,
+this simulates the lack of fine motor control.
+
+In summary, my thumb and fingers on the right hand cannot press keys reliably,
+mistakes occur in every third? fifth? word on average, and working around this is where i3 helps.
+
+== How does i3 help?
+
+=== Context
+
+My desktop enviroment is XFCE-based, with i3 replacing the XFCE window manager.
+
+i3 is used alongside a collection of bash scripts and the i3-msg program.
+I have since reaiised that using the i3-ipc library is the better approach.
+
+What matters to me at this stage is being able to use my PC,
+my emphasis is on automation, ergonomics, and discovering what works for me.
+Please view my current implementation as a fast prototype.
+
+=== Human Interface Devices
+
+Using a mouse implies being able to position the cursor accurately,
+which becomes increasingly difficult when you have PD.
+
+Using a keyboard offers the user these choices:
+in hardware, a light or heavy action, a linear or clicky feel;
+in software, the keyboard layout, accessibility features such as sticky keys,
+and one that I particularly like, using modifier keys standalone via 'xcape'.
+
+* Some decades ago I successfully adapted to using the mouse with my left hand,
+in order to place the QWERTY section of the keyboard in the middle of my desk,
+and thereby acheve a balanced posture.
+Unfortunately the temptation to use the mouse with my good hand
+is becoming an obstacle to my making better use of the keyboard.
+
+i3 presents the keyboard as the primary human interface device,
+making it a better choice for people with PD.
+
+=== Windowing Operations
+
+i3 is a tiling window manager.
+
+I don't need the mouse or fine motor control to manipulate windows,
+because tiling automatically arranges windows without overlapping them.
+Key bindings let me refine the arrangement manually.
+The IPC socket lets me automate window management operations.
+
+=== Key bindings
+
+The default i3 keybindings combine two or three keys
+to invoke the basic window management commands.
+I can't co-ordinate two hands to use some of them,
+but I can use the left hand or right hand on its own to press some combinations,
+e.g. Control+Tab, Windows+Tab, Control+Menu, Control+Delete.
+
+Although I was born right-handed, I am effectively left-handed due to PD.
+I have gained a better understanding of how people born left-handed feel
+in a right-handed world.
+
+Consequently, I design my keyboard layout such that any special keys
+are available on the left and on the right. If necessary I willl use 'xcape'
+and 'xmodmap' to ensure this prior to defining my i3 key bindings.
+
+*  The left-side Windows key alone behaves like the Menu key.
+*  The Alt and AltGr keys alone behave like the Escape key.
+
+I use the term "key combination" to describe a keybinding such as "Control+Alt+Delete".
+The Control and Alt keys are modifiers, they do nothing until the Delete key is pressed.
+
+I use the term "key sequence" to describe the typing of several keys
+(or key combinations) in succession.
+For example the key sequence "Control-x Control-c" to quit Emacs.
+
+=== Primary Modes
+
+i3 modes reduce the need to co-ordinate the hands.
+
+The Menu key cycles through three primary modes.
+. Pressing Menu while in default mode enters the first non-default mode.
+. Pressing Menu a second time enters the second non-default mode.
+. Pressing Menu a third time returns to the default mode.
+
+In the first non-default mode, there are three inverted T cursor controls for focus, move, resize;
+the three "cursor keypads" are the four letters : WASD, TFGH, IJKL, respectively.
+
+In the second non-default mode there are three sets of 3 keys on the left, QWE,ASD,ZXC.
+These move focus to output, move container to output, move workspace to output.
+The key triplets correspond to monitors on the left, in the middle and on the right.
+
+Entering a non-default mode from any other mode resets all i3 keybindings.
+Re-entering default mode restores the i3 keybindings for default mode.
+
+When defining a non-default mode, it is good practice, albeit tedious,
+to bind otherwise unbound keys to a 'nop',
+otherwise the key "falls through" to the application in the current window.
+
+=== Secondary Modes
+
+Pressing the Tab or Return key enters a secondary mode from either of the non-default modes.
+This secondary mode  exists to solve a problem associated with PD;
+namely that it is just too easy to accidentally close a window and lose work.
+
+This secondary mode provides the key sequence "Menu, Tab, Control+q"
+to invoke the i3 "kill" command, which closes the currently focused window.
+This key sequence is fairly easy to type intentionally but difficult to type by mistake.
+
+i3 "Command Criteria"
+define the subset of all windows affected by a command.
+Applying this to the aforementioned 'kill' command
+prevents the accidental closure of a program such as Google Chrome.
+
+=== Mode Indicator
+
+The 'xrandr' utility is used to dim the screen when not in default mode,
+to act as a reminder and a warning.
+
+== My User Interface (Is Weird)
+
+A dedicated key brings up a custom dialog box,
+into which the user types exactly two characters.
+After a short timeout has expired the dialog then closes
+without the user having to press Enter.
+
+=== Launch or Focus.
+
+Entering two lowercase letters into the custom dialog,
+let's say 'gc' for Google Chrome, launches the associated program,
+unless the program is already running, in which case the program's window will get focus.
+
+With exception of terminals, launching a program creates a workspace for that program.
+The workspace is given a name that matches the two lowercase letters that launched the program.
+This works well with web browsers, spreadsheets, presentations, videos,
+indeed most of the applications I use, except terminals and Emacs frames.
+
+=== Terminals
+
+In my workflow, approximately one third of windows are terminal windows,
+and terminals need to be grouped together.
+
+If the terminal is to be opened in the current workspace,
+two dedicated two-letter commands are available.
+Either will split the currently focused window to accommodate another terminal,
+one performs a horizontal split, the other performs a vertical split.
+
+Entering two lowercase letters that aren't explicitly assigned will open a terminal.
+This terminal will be assigned to an automatically managed workspace whose name matches the two letters.
+Multiple terminals can be added to such an existing workspace, by entering the same two letters.
+
+=== Marks
+
+Every terminal is automatically assigned a two digit visible mark.
+Emacs "frames" (windows) are also assigned a two digit visible mark.
+Entering two digits in the custom dialog switches focus to the terminal or Emacs frame with that mark.
+
+=== Emacs frames
+
+I try to avoid viewing more than one document at a time inside an Emacs frame.
+My preference is to split such an Emacs frame into separate Emacs frames managed by i3.
+I have changed Emacs bindings 'C-x 2' and 'C-x 3' to call the function normally bound to 'C-x 5 2'.
+
+Opening a new Emacs frame with 'C-x 5 2' assigns a mark as described earlier,
+then prompts for which workspace the Emacs frame should be moved to.
+This facilitates use cases where the screen has an Emacs frame in one half,
+and e.g. a browser or some terminals in the other half.
+
+=== Swapping
+
+i3 has a command to swap the current window with another window identified by a mark.
+I've recently realised that swapping automatically marked windows can be easier than
+using the cursor keys and the split keys to get the window arrangement I need.
+
+
+
+== Links
+
+. https://www.reddit.com/r/i3wm/comments/830qdi/i3wm_and_xfce4_need_reassurance/
+. https://penandthepad.com/write-third-person-english-writing-7833317.html
+. https://i3wm.org/
