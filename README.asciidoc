@@ -24,7 +24,7 @@ I believe the appropriate writing style here is first-person.
 
 == What is i3?
 
-Please take a momentmunute or two  to read the link:http://www.i3wm.org[i3 homepage at www.i3wm.org],
+Please take a minute or two  to read the link:http://www.i3wm.org[i3 homepage at www.i3wm.org],
 especially the stated goals and values. Here's my TL;DR summary:
 
 [quote,www.i3wm.org]
