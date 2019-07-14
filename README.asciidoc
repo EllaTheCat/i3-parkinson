@@ -68,7 +68,7 @@ mistakes occur in every third? fifth? word on average, and working around this i
 My desktop enviroment is XFCE-based, with i3 replacing the XFCE window manager.
 
 i3 is used alongside a collection of bash scripts and the i3-msg program.
-I have since reaiised that using the i3-ipc library is the better approach.
+I have since realised that using the i3-ipc library is the better approach.
 
 What matters to me at this stage is being able to use my PC,
 my emphasis is on automation, ergonomics, and discovering what works for me.
